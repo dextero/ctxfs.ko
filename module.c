@@ -1,6 +1,3 @@
-#ifndef COMMON_H
-#define COMMON_H
-
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/slab.h>
@@ -21,22 +18,30 @@
 
 MODULE_LICENSE("GPL");
 
-extern void rustfs_module_init(void);
-extern void rustfs_module_exit(void);
+char __morestack[1024];
+extern struct module __this_module;
+
+static struct file_system_type FS_TYPE = {
+    .name = "rustfs",
+    .fs_flags = 0,
+    .owner = THIS_MODULE
+};
+
+extern int rustfs_module_init(struct file_system_type *fs_type);
+extern void rustfs_module_exit(struct file_system_type *fs_type);
 
 static int __init simple_init(void) {
+    int retval;
     printk(KERN_INFO "rustfs: calling rustfs_module_init\n");
-    rustfs_module_init();
+    retval = rustfs_module_init(&FS_TYPE);
     printk(KERN_INFO "ristfs: init complete\n");
+    return retval;
 }
 
 static void __exit simple_exit(void) {
     printk(KERN_INFO "rustfs: exit\n");
-    rustfs_module_exit();
+    rustfs_module_exit(&FS_TYPE);
 }
 
 module_init(simple_init);
 module_exit(simple_exit);
-
-
-#endif // COMMON_H

@@ -4,15 +4,15 @@ RUST_ROOT := /usr/local
 
 RC := $(RUST_ROOT)/bin/rustc
 
-KERNEL_VERSION = $(shell uname -r)
-C_SOURCES = $(shell find ./ -name '*.c' | sed 's|^\.\/||')
-C_OBJECTS = $(C_SOURCES:.c=.o)
-RUST_SOURCES = $(shell find ./ -name '*.rs' | sed 's|^\.\/||')
-RUST_OBJECTS = $(RUST_SOURCES:.rs=.o)
-MODULE = rustfs.ko
+KERNEL_VERSION := $(shell uname -r)
+C_SOURCES := $(shell find ./ -maxdepth 1 -name '*.c' | sed 's|^\.\/||')
+C_OBJECTS := $(C_SOURCES:.c=.o)
+RUST_SOURCES := $(shell find ./ -maxdepth 1 -name '*.rs' | sed 's|^\.\/||')
+RUST_OBJECTS := $(RUST_SOURCES:.rs=.o)
+MODULE := rustfs
 
-obj-m = $(OBJECTS) $(RUST_OBJECTS)
-rustfs-objs := $(OBJECTS)
+obj-m = $(MODULE).o
+rustfs-objs := module.o main.o
 
 .PHONY: all
 all: $(MODULE)
@@ -31,3 +31,4 @@ fixup:
 .PHONY: clean
 clean:
 	make -C /lib/modules/$(KERNEL_VERSION)/build M=$(PWD) clean
+
