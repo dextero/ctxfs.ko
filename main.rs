@@ -13,6 +13,8 @@ extern "rust-intrinsic" {
     pub fn transmute<T, U>(val: T) -> U;
 }
 
+const RUSTFS_MAGIC_NUMBER: uint = 0x72757374;
+
 const SB_UNFROZEN        : uint = 0;
 const SB_FREEZE_WRITE    : uint = 1;
 const SB_FREEZE_PAGEFAULT: uint = 2;
@@ -28,6 +30,18 @@ const FS_USERNS_DEV_MOUNT  : uint = 16;    /* A userns mount does not imply MNT_
 const FS_RENAME_DOES_D_MOVE: uint = 32768; /* FS will handle d_move() during rename() internally. */
 
 const ENOMEM: int = 12;
+
+const S_IFMT:   uint = 0170000;
+const S_IFSOCK: uint = 0140000;
+const S_IFLNK:  uint = 0120000;
+const S_IFREG:  uint = 0100000;
+const S_IFBLK:  uint = 0060000;
+const S_IFDIR:  uint = 0040000;
+const S_IFCHR:  uint = 0020000;
+const S_IFIFO:  uint = 0010000;
+const S_ISUID:  uint = 0004000;
+const S_ISGID:  uint = 0002000;
+const S_ISVTX:  uint = 0001000;
 
 type umode_t = u16;
 type kuid_t = u32; // actually a struct containing u32
@@ -205,6 +219,9 @@ extern {
                                   data: *mut u8,
                                   silent: int) -> int) -> *mut dentry;
     pub fn new_inode(sb: *mut super_block) -> *mut inode;
+    pub fn inode_init_owner(inode: *mut inode,
+                            dir: *const inode,
+                            mode: umode_t);
 }
 
 fn print(s: &str) {
@@ -225,6 +242,19 @@ fn rustfs_fill_sb(sb: *mut super_block,
                   silent: int)
     -> int
 {
+    let root = new_inode(sb);
+    if root == transmute(0u) {
+        print("rustfs: new_inode failed\n");
+        return -1;
+    }
+
+    (*sb).s_magic = RUSTFS_MAGIC_NUMBER;
+    //(*sb).s_op =
+
+    (*root).i_ino = 0;
+    (*root).i_sb = sb;
+    (*root).i_atime = (*root).i_mtime = (*root).i_ctime = 0; // lol
+    inode_init_owner(root, transmute(0u), S_IFDIR);
     -ENOMEM
 }
 
