@@ -29,11 +29,51 @@ const FS_RENAME_DOES_D_MOVE: uint = 32768; /* FS will handle d_move() during ren
 
 const ENOMEM: int = 12;
 
+type umode_t = u16;
+type kuid_t = u32; // actually a struct containing u32
+type kgid_t = u32; // actually a struct containing u32
+type dev_t = u32;
+type loff_t = i64;
+type blkcnt_t = u64;
+type atomic_t = i32;
+
+// stubs
+pub struct address_space;
+pub struct block_device;
 pub struct dentry;
-pub struct super_block;
-pub struct module;
+pub struct file_lock;
+pub struct file_operations;
 pub struct hlist_head;
+pub struct hlist_node;
+pub struct inode_operations;
+pub struct list_head;
 pub struct lock_class_key;
+pub struct module;
+pub struct mutex;
+pub struct super_block;
+pub struct timespec;
+
+struct spinlock_t {
+    lock: u32, // actually, arch_spinlock_t
+#ifdef CONFIG_GENERIC_LOCKBREAK
+	break_lock: u32
+#endif
+    // screew debug stuff
+/*
+#ifdef CONFIG_DEBUG_SPINLOCK
+	unsigned int magic, owner_cpu;
+	void *owner;
+#endif
+#ifdef CONFIG_DEBUG_LOCK_ALLOC
+	struct lockdep_map dep_map;
+#endif
+*/
+}
+
+pub struct callback_head {
+	next: *mut callback_head,
+	head: fn(head: *mut callback_head)
+}
 
 pub struct file_system_type {
     name: *const u8,
@@ -88,7 +128,7 @@ struct inode {
 	 *    (set|clear|inc|drop)_nlink
 	 *    inode_(inc|dec)_link_count
 	 */
-    i_nlink: const uint,
+    i_nlink: uint,
 	i_rdev: dev_t,
 	i_size: loff_t,
 	i_atime: *mut timespec,
@@ -104,19 +144,20 @@ struct inode {
 #endif
 
 	/* Misc */
-	i_state: unsigned long,
+	i_state: u64,
 	i_mutex: *mut mutex,
 
-	dirtied_when: unsigned long, /* jiffies of first dirtying */
+	dirtied_when: u64, /* jiffies of first dirtying */
 
 	i_hash: *mut hlist_node,
 	i_wb_list: *mut list_head, /* backing dev IO list */
 	i_lru: *mut list_head, /* inode LRU list */
 	i_sb_list: *mut list_head,
-	union {
+	/* union {
 		struct hlist_head	i_dentry;
 		struct rcu_head		i_rcu;
-	};
+	}; */
+    i_rcu: callback_head,
 	i_version: u64,
 	i_count: atomic_t,
 	i_dio_count: atomic_t,
@@ -133,12 +174,12 @@ struct inode {
 		struct block_device	*i_bdev;
 		struct cdev		*i_cdev;
 	}; */
-    i_bdev: *mut block_device;
+    i_bdev: *mut block_device,
 
 	i_generation: u32,
 
 #ifdef CONFIG_FSNOTIFY
-	i_fsnotify_mask: __u32, /* all events this inode cares about */
+	i_fsnotify_mask: u32, /* all events this inode cares about */
 	i_fsnotify_marks: *mut hlist_head,
 #endif
 
@@ -146,12 +187,12 @@ struct inode {
 	i_readcount: atomic_t, /* struct files open RO */
 #endif
 	i_private: *mut	u8, /* fs or device private pointer */
-};
+}
 
 extern {
     pub fn printk(fmt: *mut u8);
-    pub fn kmalloc(size: uint) -> *mut u8;
-    pub fn kfree(ptr: *mut u8);
+    //pub fn kmalloc(size: uint) -> *mut u8;
+    //pub fn kfree(ptr: *mut u8);
 
     pub fn kill_litter_super(sb: *mut super_block);
     pub fn register_filesystem(fs: *mut file_system_type) -> int;
@@ -248,3 +289,5 @@ pub extern fn rustfs_module_init(fs_type: *mut rustfs::file_system_type) -> int 
 pub extern fn rustfs_module_exit(fs_type: *const rustfs::file_system_type) {
     rustfs::module_exit(fs_type)
 }
+
+
