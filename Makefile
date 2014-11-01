@@ -24,11 +24,24 @@ $(MODULE).ko: $(C_SOURCES) $(RUST_OBJECTS) fixup
 fixup:
 	$(RC) fixup.rs
 
-%.o: %.rs
+%.rs_E: %.rs
+	@awk '/^#/ { \
+		     if ($$0 ~ /^#define|#ifdef|#endif/) { \
+			 	 print \
+			 } else { \
+			 	print "//" $$0 \
+			 } \
+	     } \
+		 /^[^#]/ { print }' $< > $(PWD)/$@.tmp
+	$(CC) $(CFLAGS) -E -o $(PWD)/$@ $(PWD)/$@.tmp
+	@sed 's|^//#!|#!|' $(PWD)/$@.tmp > $(PWD)/$@
+	@rm $@.tmp
+
+%.o: %.rs_E
 	$(RC) -L $(PWD) -O --crate-type lib -o $@ --emit obj $<
 
 .PHONY: clean
 clean:
 	make -C /lib/modules/$(KERNEL_VERSION)/build M=$(PWD) clean
-	rm -f fixup
+	rm -f fixup *.rs_E
 
