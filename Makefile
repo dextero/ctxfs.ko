@@ -15,20 +15,20 @@ obj-m = $(MODULE).o
 rustfs-objs := module.o main.o
 
 .PHONY: all
-all: $(MODULE)
+all: $(MODULE).ko
 
-$(MODULE): $(C_SOURCES) $(RUST_OBJECTS) fixup
+$(MODULE).ko: $(C_SOURCES) $(RUST_OBJECTS) fixup
 	make -C /lib/modules/$(KERNEL_VERSION)/build M=$(PWD) modules
-	#./fixup $@
+	./fixup $@
 
 fixup:
-	# fixup.rs
-	#$(RC) fixup.rs
+	$(RC) fixup.rs
 
 %.o: %.rs
-	$(RC) -O --crate-type lib -o $@ --emit obj $<
+	$(RC) -L $(PWD) -O --crate-type lib -o $@ --emit obj $<
 
 .PHONY: clean
 clean:
 	make -C /lib/modules/$(KERNEL_VERSION)/build M=$(PWD) clean
+	rm -f fixup
 

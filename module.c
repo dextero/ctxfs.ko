@@ -19,7 +19,22 @@
 MODULE_LICENSE("GPL");
 
 char __morestack[1024];
-extern struct module __this_module;
+char _GLOBAL_OFFSET_TABLE_;
+
+void abort(void)
+{
+    BUG();
+}
+
+void *malloc(size_t s)
+{
+    return kmalloc(s, GFP_KERNEL);
+}
+
+void free(void *ptr)
+{
+    kfree(ptr);
+}
 
 static struct file_system_type FS_TYPE = {
     .name = "rustfs",
@@ -34,7 +49,7 @@ static int __init simple_init(void) {
     int retval;
     printk(KERN_INFO "rustfs: calling rustfs_module_init\n");
     retval = rustfs_module_init(&FS_TYPE);
-    printk(KERN_INFO "ristfs: init complete\n");
+    printk(KERN_INFO "rustfs: init complete\n");
     return retval;
 }
 
