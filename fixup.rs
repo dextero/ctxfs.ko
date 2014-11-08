@@ -19,8 +19,11 @@ fn readelf(file: &Path) -> Vec<(uint, uint)> {
                     && line.contains("rustfs") {
                 let x1 : Vec<&str> = line.words().collect();
                 println!("found: {}", x1);
-                let num_entries: uint = from_str_radix(x1[7], 10).unwrap();
-                let offset: uint = from_str_radix(x1[5].slice_from(2), 16).unwrap();
+
+                let num_entries: uint = from_str_radix(x1[7], 10)
+                                        .unwrap();
+                let offset: uint = from_str_radix(x1[5].slice_from(2), 16)
+                                   .unwrap();
                 ret.push((num_entries, offset));
             }
         }
