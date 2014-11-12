@@ -129,28 +129,28 @@ long ctxfs_free_cached_objects(struct super_block *sb,
 }
 
 static const struct super_operations CTXFS_SUPER_OPS = {
-    .alloc_inode = ctxfs_alloc_inode,
-    .destroy_inode = ctxfs_destroy_inode,
+    /*.alloc_inode = ctxfs_alloc_inode,*/
+    /*.destroy_inode = ctxfs_destroy_inode,*/
 
-    .dirty_inode = ctxfs_dirty_inode,
-    .write_inode = ctxfs_write_inode,
-    .drop_inode = ctxfs_drop_inode,
-    .evict_inode = ctxfs_evict_inode,
-    .put_super = ctxfs_put_super,
-    .sync_fs = ctxfs_sync_fs,
-    .freeze_fs = ctxfs_freeze_fs,
-    .unfreeze_fs = ctxfs_unfreeze_fs,
-    .statfs = ctxfs_statfs,
-    .remount_fs = ctxfs_remount_fs,
-    .umount_begin = ctxfs_umount_begin,
+    /*.dirty_inode = ctxfs_dirty_inode,*/
+    /*.write_inode = ctxfs_write_inode,*/
+    /*.drop_inode = ctxfs_drop_inode,*/
+    /*.evict_inode = ctxfs_evict_inode,*/
+    /*.put_super = ctxfs_put_super,*/
+    /*.sync_fs = ctxfs_sync_fs,*/
+    /*.freeze_fs = ctxfs_freeze_fs,*/
+    /*.unfreeze_fs = ctxfs_unfreeze_fs,*/
+    /*.statfs = ctxfs_statfs,*/
+    /*.remount_fs = ctxfs_remount_fs,*/
+    /*.umount_begin = ctxfs_umount_begin,*/
 
-    .show_options = ctxfs_show_options,
-    .show_devname = ctxfs_show_devname,
-    .show_path = ctxfs_show_path,
-    .show_stats = ctxfs_show_stats,
-    .bdev_try_to_free_page = ctxfs_bdev_try_to_free_page,
-    .nr_cached_objects = ctxfs_nr_cached_objects,
-    .free_cached_objects = ctxfs_free_cached_objects
+    /*.show_options = ctxfs_show_options,*/
+    /*.show_devname = ctxfs_show_devname,*/
+    /*.show_path = ctxfs_show_path,*/
+    /*.show_stats = ctxfs_show_stats,*/
+    /*.bdev_try_to_free_page = ctxfs_bdev_try_to_free_page,*/
+    /*.nr_cached_objects = ctxfs_nr_cached_objects,*/
+    /*.free_cached_objects = ctxfs_free_cached_objects*/
 };
 
 static int ctxfs_fill_sb(struct super_block *sb,
@@ -158,23 +158,6 @@ static int ctxfs_fill_sb(struct super_block *sb,
                          int silent) {
     trace("begin");
     struct inode *root = NULL;
-
-    trace("s_type = %p", sb->s_type);
-    trace("s_op = %p", sb->s_op);
-    trace("dq_op = %p", sb->dq_op);
-    trace("s_qcop = %p", sb->s_qcop);
-    trace("s_export_op = %p", sb->s_export_op);
-    trace("s_root = %p", sb->s_root);
-    trace("s_security = %p", sb->s_security);
-    trace("s_xattr = %p", sb->s_xattr);
-    trace("s_bdev = %p", sb->s_bdev);
-    trace("s_bdi = %p", sb->s_bdi);
-    trace("s_mtd = %p", sb->s_mtd);
-    trace("s_fs_info = %p", sb->s_fs_info);
-    trace("s_subtype = %p", sb->s_subtype);
-    trace("s_options = %p", sb->s_options);
-    trace("s_d_op = %p", sb->s_d_op);
-    trace("s_dio_done_wq = %p", sb->s_dio_done_wq);
 
     sb->s_magic = CTXFS_MAGIC;
     sb->s_op = &CTXFS_SUPER_OPS;
@@ -220,7 +203,7 @@ static struct file_system_type FS_TYPE = {
     .name = "ctxfs",
     .fs_flags = 0,
     .mount = ctxfs_mount,
-    .kill_sb = kill_block_super,
+    .kill_sb = kill_litter_super,
     .owner = THIS_MODULE
 };
 
