@@ -13,6 +13,7 @@
 #include <linux/device.h>
 #include <linux/cdev.h>
 #include <linux/mount.h>
+#include <net/cfg80211.h>
 
 #include <asm/uaccess.h>
 
@@ -37,191 +38,247 @@ MODULE_LICENSE("GPL");
 #define prinfo(...) MAKE_PRINT(pr_info, __VA_ARGS__)
 #define prerr(...) MAKE_PRINT(pr_err, __VA_ARGS__)
 
-struct inode *ctxfs_alloc_inode(struct super_block *sb) {
-    trace("ctxfs_alloc_inode");
-    return NULL;
-}
-void ctxfs_destroy_inode(struct inode *inode) {
-    trace("ctxfs_destroy_inode");
-}
-void ctxfs_dirty_inode(struct inode *inode,
-                       int flags) {
-    trace("ctxfs_dirty_inode");
-}
-int ctxfs_write_inode(struct inode *inode,
-                      struct writeback_control *wbc) {
-    trace("ctxfs_write_inode");
-    return -1;
-}
-int ctxfs_drop_inode(struct inode *inode) {
-    trace("ctxfs_drop_inode");
-    return -1;
-}
-void ctxfs_evict_inode(struct inode *inode) {
-    trace("ctxfs_evict_inode");
-}
-void ctxfs_put_super(struct super_block *sb) {
-    trace("ctxfs_put_super");
-}
-int ctxfs_sync_fs(struct super_block *sb,
-                  int wait) {
-    trace("ctxfs_sync_fs");
-    return -1;
-}
-int ctxfs_freeze_fs(struct super_block *sb) {
-    trace("ctxfs_freeze_fs");
-    return -1;
-}
-int ctxfs_unfreeze_fs(struct super_block *sb) {
-    trace("ctxfs_unfreeze_fs");
-    return -1;
-}
-int ctxfs_statfs(struct dentry *dentry,
-                 struct kstatfs *stat) {
-    trace("ctxfs_statfs");
-    return -1;
-}
-int ctxfs_remount_fs(struct super_block *sb,
-                     int *foo,
-                     char *bar) {
-    trace("ctxfs_remount_fs");
-    return -1;
-}
-void ctxfs_umount_begin(struct super_block *sb) {
-    trace("ctxfs_umount_begin");
-}
-int ctxfs_show_options(struct seq_file *seqf,
-                       struct dentry *dentry) {
-    trace("ctxfs_show_options");
-    return -1;
-}
-int ctxfs_show_devname(struct seq_file *seqf,
-                       struct dentry *dentry) {
-    trace("ctxfs_show_devname");
-    return -1;
-}
-int ctxfs_show_path(struct seq_file *seqf,
-                    struct dentry *dentry) {
-    trace("ctxfs_show_path");
-    return -1;
-}
-int ctxfs_show_stats(struct seq_file *seqf,
-                     struct dentry *dentry) {
-    trace("ctxfs_show_stats");
-    return -1;
-}
-int ctxfs_bdev_try_to_free_page(struct super_block *sb,
-                                struct page *page,
-                                gfp_t foo) {
-    trace("ctxfs_bdev_try_to_free_page");
-    return -1;
-}
-long ctxfs_nr_cached_objects(struct super_block *sb,
-                             int foo) {
-    trace("ctxfs_nr_cached_objects");
-    return -1;
-}
-long ctxfs_free_cached_objects(struct super_block *sb,
-                               long foo,
-                               int bar) {
-    trace("ctxfs_free_cached_objects");
-    return -1;
-}
+struct rfkill;
 
-static const struct super_operations CTXFS_SUPER_OPS = {
-    /*.alloc_inode = ctxfs_alloc_inode,*/
-    /*.destroy_inode = ctxfs_destroy_inode,*/
-
-    /*.dirty_inode = ctxfs_dirty_inode,*/
-    /*.write_inode = ctxfs_write_inode,*/
-    /*.drop_inode = ctxfs_drop_inode,*/
-    /*.evict_inode = ctxfs_evict_inode,*/
-    /*.put_super = ctxfs_put_super,*/
-    /*.sync_fs = ctxfs_sync_fs,*/
-    /*.freeze_fs = ctxfs_freeze_fs,*/
-    /*.unfreeze_fs = ctxfs_unfreeze_fs,*/
-    /*.statfs = ctxfs_statfs,*/
-    /*.remount_fs = ctxfs_remount_fs,*/
-    /*.umount_begin = ctxfs_umount_begin,*/
-
-    /*.show_options = ctxfs_show_options,*/
-    /*.show_devname = ctxfs_show_devname,*/
-    /*.show_path = ctxfs_show_path,*/
-    /*.show_stats = ctxfs_show_stats,*/
-    /*.bdev_try_to_free_page = ctxfs_bdev_try_to_free_page,*/
-    /*.nr_cached_objects = ctxfs_nr_cached_objects,*/
-    /*.free_cached_objects = ctxfs_free_cached_objects*/
+struct rfkill_ops {
+	void	(*poll)(struct rfkill *rfkill, void *data);
+	void	(*query)(struct rfkill *rfkill, void *data);
+	int	(*set_block)(void *data, bool blocked);
 };
 
-static int ctxfs_fill_sb(struct super_block *sb,
-                         void *data,
-                         int silent) {
-    trace("begin");
-    struct inode *root = NULL;
+struct cfg80211_registered_device {
+	const struct cfg80211_ops *ops;
+	struct list_head list;
 
-    sb->s_magic = CTXFS_MAGIC;
-    sb->s_op = &CTXFS_SUPER_OPS;
+	/* rfkill support */
+	struct rfkill_ops rfkill_ops;
+	struct rfkill *rfkill;
+	struct work_struct rfkill_sync;
 
-    root = new_inode(sb);
-    if (!root) {
-        prerr("new_inode failed");
-        return -ENOMEM;
-    }
+	/* ISO / IEC 3166 alpha2 for which this device is receiving
+	 * country IEs on, this can help disregard country IEs from APs
+	 * on the same alpha2 quickly. The alpha2 may differ from
+	 * cfg80211_regdomain's alpha2 when an intersection has occurred.
+	 * If the AP is reconfigured this can also be used to tell us if
+	 * the country on the country IE changed. */
+	char country_ie_alpha2[2];
 
-    root->i_ino = 0;
-    root->i_sb = sb;
-    root->i_atime = root->i_mtime = root->i_ctime = CURRENT_TIME;
-    inode_init_owner(root, NULL, S_IFDIR);
+	/* If a Country IE has been received this tells us the environment
+	 * which its telling us its in. This defaults to ENVIRON_ANY */
+	enum environment_cap env;
 
-    sb->s_root = d_make_root(root);
-    if (!sb->s_root) {
-        prerr("d_make_root failed");
-        return -ENOMEM;
-    }
+	/* wiphy index, internal only */
+	int wiphy_idx;
 
-    return 0;
-}
+	/* associated wireless interfaces, protected by rtnl or RCU */
+	struct list_head wdev_list;
+	int devlist_generation, wdev_id;
+	int opencount; /* also protected by devlist_mtx */
+	wait_queue_head_t dev_wait;
 
-static struct dentry *ctxfs_mount(struct file_system_type *fs_type,
-                                  int flags,
-                                  const char *dev,
-                                  void *data) {
-    trace("begin");
-    struct dentry *entry = mount_nodev(fs_type, flags, data, ctxfs_fill_sb);
-    trace("entry = %p", entry);
+	struct list_head beacon_registrations;
+	spinlock_t beacon_registrations_lock;
 
-    if (IS_ERR(entry)) {
-        prerr("mount failed: %ld", PTR_ERR(entry));
-    } else {
-        prinfo("mount succeeded");
-    }
+	/* protected by RTNL only */
+	int num_running_ifaces;
+	int num_running_monitor_ifaces;
 
-    return entry;
-}
+	/* BSSes/scanning */
+	spinlock_t bss_lock;
+	struct list_head bss_list;
+	struct rb_root bss_tree;
+	u32 bss_generation;
+	struct cfg80211_scan_request *scan_req; /* protected by RTNL */
+	struct cfg80211_sched_scan_request *sched_scan_req;
+	unsigned long suspend_at;
+	struct work_struct scan_done_wk;
+	struct work_struct sched_scan_results_wk;
 
-static struct file_system_type FS_TYPE = {
-    .name = "ctxfs",
-    .fs_flags = 0,
-    .mount = ctxfs_mount,
-    .kill_sb = kill_litter_super,
-    .owner = THIS_MODULE
+#ifdef CONFIG_NL80211_TESTMODE
+	struct genl_info *testmode_info;
+#endif
+
+	struct work_struct conn_work;
+	struct work_struct event_work;
+
+	struct delayed_work dfs_update_channels_wk;
+
+	/* netlink port which started critical protocol (0 means not started) */
+	u32 crit_proto_nlportid;
+
+	struct cfg80211_coalesce *coalesce;
+
+	/* must be last because of the way we do wiphy_priv(),
+	 * and it should at least be aligned to NETDEV_ALIGN */
+	struct wiphy wiphy __aligned(NETDEV_ALIGN);
 };
+
+static inline
+struct cfg80211_registered_device *wiphy_to_rdev(struct wiphy *wiphy)
+{
+	return container_of(wiphy, struct cfg80211_registered_device, wiphy);
+}
+
+static struct wireless_dev *get_wdev_by_ifname(const char *ifname) {
+    if (!ifname) {
+        prerr("null ifname passed to get_wiphy_by_ifname");
+        return NULL;
+    }
+
+    struct net *net = NULL;
+    net = get_net_ns_by_pid(1); /* TODO */
+    if (!net) {
+        prerr("get_ns_by_pid failed");
+        return NULL;
+    }
+
+    struct net_device *dev = NULL;
+    dev = dev_get_by_name(net, ifname);
+    if (!dev) {
+        prerr("dev_get_by_name failed");
+        return NULL;
+    }
+
+    return dev->ieee80211_ptr;
+}
+
+static int count_channels(const struct wiphy *wiphy) {
+    if (!wiphy) {
+        prerr("null wiphy passed to count_channels");
+        return 0;
+    }
+
+    enum ieee80211_band band;
+    int n_channels = 0;
+
+    for (band = 0; band < IEEE80211_NUM_BANDS; band++) {
+        if (wiphy->bands[band]) {
+            n_channels += wiphy->bands[band]->n_channels;
+        }
+    }
+
+    return n_channels;
+}
+
+static void scan_req_fill_channels(struct cfg80211_scan_request *out_req,
+                                   struct wiphy *wiphy) {
+    if (!out_req || !wiphy) {
+        prerr("invalid arguments to scan_req_fill_channels: out_req = %p, "
+              "wiphy = %p", out_req, wiphy);
+        return;
+    }
+
+    enum ieee80211_band band;
+    int i = 0;
+
+    /* all channels */
+    for (band = 0; band < IEEE80211_NUM_BANDS; band++) {
+        int j;
+
+        if (!wiphy->bands[band]) {
+            continue;
+        }
+
+        for (j = 0; j < wiphy->bands[band]->n_channels; j++) {
+            struct ieee80211_channel *chan;
+
+            chan = &wiphy->bands[band]->channels[j];
+
+            if (chan->flags & IEEE80211_CHAN_DISABLED)
+                continue;
+
+            out_req->channels[i] = chan;
+            i++;
+        }
+    }
+
+    out_req->n_channels = i;
+}
+
+static struct cfg80211_scan_request *create_scan_req(struct wireless_dev *wdev) {
+    if (!wdev || !wdev->wiphy) {
+        prerr("invalid arguments to count_channels: wdev = %p, wdev->wiphy = %p",
+              wdev, wdev->wiphy);
+        return NULL;
+    }
+
+    int n_channels = count_channels(wdev->wiphy);
+    if (n_channels <= 0) {
+        prerr("invalid channel count: %d", n_channels);
+        return NULL;
+    }
+
+    struct cfg80211_scan_request *req =
+            kzalloc(sizeof(*req) + n_channels * sizeof(*req->channels),
+                    GFP_KERNEL);
+
+    scan_req_fill_channels(req, wdev->wiphy);
+
+    req->wdev = wdev;
+    req->wiphy = wdev->wiphy;
+    req->notified = true;
+
+    return req;
+}
 
 static int __init simple_init(void) {
-    int result = register_filesystem(&FS_TYPE);
-    if (result) {
-        prerr("register_filesystem failed (%d)", result);
-    } else {
-        prinfo("registered");
+    prinfo("init");
+
+    struct wireless_dev *wdev = get_wdev_by_ifname("wlan0");
+    if (!wdev) {
+        prerr("ieee80211_ptr null");
+        return -1;
     }
+    if (!wdev->wiphy) {
+        prerr("wiphy null");
+        return -1;
+    }
+
+    struct cfg80211_registered_device *rdev = wiphy_to_rdev(wdev->wiphy);
+    if (!rdev) {
+        prerr("rdev null");
+        return -1;
+    }
+    if (rdev->scan_req) {
+        prerr("scan_req not null");
+        return -1;
+    }
+
+    const struct cfg80211_ops *ops = rdev->ops;
+    if (!ops) {
+        prerr("ops null");
+        return -1;
+    }
+
+    struct cfg80211_scan_request *req = create_scan_req(wdev);
+    if (!req) {
+        prerr("cannot create scan_req");
+        return -1;
+    }
+
+    rdev->scan_req = req;
+
+    int result = ops->scan(&rdev->wiphy, req);
+    if (result) {
+        prerr("scan returned %d", result);
+        goto cleanup;
+    }
+
+    int i;
+    for (i = 0; i < req->n_ssids; ++i) {
+        const struct cfg80211_ssid *ssid = &req->ssids[i];
+
+        prinfo("%d: %.*s", i + 1, (int)ssid->ssid_len, ssid->ssid);
+    }
+
+cleanup:
+    rdev->scan_req = NULL;
+    kfree(req);
     return 0;
 }
 
 static void __exit simple_exit(void) {
     prinfo("exit");
-    if (unregister_filesystem(&FS_TYPE)) {
-        prerr("unregister_filesystem failed");
-    }
 }
 
 module_init(simple_init);
