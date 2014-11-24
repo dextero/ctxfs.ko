@@ -328,7 +328,7 @@ static struct inode *ext2_nfs_get_inode(struct super_block *sb,
 {
 	struct inode *inode;
 
-	if (ino < EXT2_FIRST_INO(sb) && ino != EXT2_ROOT_INO)
+	if (ino < EXT2_FIRST_INO(sb) && ino != EXT2_ROOT_INO(sb))
 		return ERR_PTR(-ESTALE);
 	if (ino > le32_to_cpu(EXT2_SB(sb)->s_es->s_inodes_count))
 		return ERR_PTR(-ESTALE);
@@ -777,6 +777,8 @@ static int ext2_fill_super(struct super_block *sb, void *data, int silent)
 	__le32 features;
 	int err;
 
+    ext2_msg(sb, __func__, "start");
+
 	err = -ENOMEM;
 	sbi = kzalloc(sizeof(*sbi), GFP_KERNEL);
 	if (!sbi)
@@ -1092,7 +1094,16 @@ static int ext2_fill_super(struct super_block *sb, void *data, int silent)
 	sb->s_qcop = &dquot_quotactl_ops;
 #endif
 
-	root = ext2_iget(sb, EXT2_ROOT_INO);
+    // temporary
+    es->s_root_ino = EXT2_ROOT_INO_ORIG;
+
+    ext2_msg(sb, __func__, "finding root ino, is: %u = %u", (unsigned)es->s_root_ino, (unsigned)EXT2_ROOT_INO(sb));
+    ret = ext2_ctx_find_root_ino(sb, &es->s_root_ino, EXT2_ROOT_INO_ORIG);
+    if (ret < 0) {
+        goto failed_mount3;
+    }
+
+	root = ext2_iget(sb, EXT2_ROOT_INO(sb));
 	if (IS_ERR(root)) {
 		ret = PTR_ERR(root);
 		goto failed_mount3;
@@ -1114,6 +1125,7 @@ static int ext2_fill_super(struct super_block *sb, void *data, int silent)
 			"warning: mounting ext3 filesystem as ext2");
 	if (ext2_setup_super (sb, es, sb->s_flags & MS_RDONLY))
 		sb->s_flags |= MS_RDONLY;
+
 	ext2_write_super(sb);
 	return 0;
 
@@ -1532,12 +1544,12 @@ out:
 
 static struct file_system_type ext2_fs_type = {
 	.owner		= THIS_MODULE,
-	.name		= "ext2",
+	.name		= "ctxext2",
 	.mount		= ext2_mount,
 	.kill_sb	= kill_block_super,
 	.fs_flags	= FS_REQUIRES_DEV,
 };
-MODULE_ALIAS_FS("ext2");
+MODULE_ALIAS_FS("ctxext2");
 
 static int __init init_ext2_fs(void)
 {

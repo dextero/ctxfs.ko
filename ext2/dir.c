@@ -718,6 +718,83 @@ not_empty:
 	return 0;
 }
 
+int ext2_ctx_find_root_ino(struct super_block *sb,
+                           int *out_ino,
+                           int orig_root_ino) {
+    struct inode *root_ino = ext2_iget(sb, orig_root_ino);
+    unsigned int offset = 0;
+    unsigned long n = 0;
+    unsigned long npages;
+    unsigned char *types = NULL;
+    struct cfg80211_ssid ssid;
+    int result;
+
+    if (IS_ERR(root_ino)) {
+        ext2_error(sb, __func__, "ext2_iget failed: %ld", PTR_ERR(root_ino));
+        return PTR_ERR(root_ino);
+    }
+
+    ext2_msg(sb, __func__, "looking for root: root_ino = %p / %lu", root_ino, root_ino->i_ino);
+
+    npages = dir_pages(root_ino);
+    result = ext2_ctx_get_curr_ssid(&ssid);
+    if (result < 0) {
+        ext2_error(sb, __func__, "ext2_ctx_get_curr_ssid failed: %d", result);
+        return result;
+    }
+
+    if (EXT2_HAS_INCOMPAT_FEATURE(sb, EXT2_FEATURE_INCOMPAT_FILETYPE))
+        types = ext2_filetype_table;
+
+    for ( ; n < npages; n++, offset = 0) {
+        char *kaddr, *limit;
+        ext2_dirent *de;
+        struct page *page = ext2_get_page(root_ino, n, 0);
+
+        if (IS_ERR(page)) {
+            ext2_error(sb, __func__, "bad page in #%lu", root_ino->i_ino);
+            return PTR_ERR(page);
+        }
+        kaddr = page_address(page);
+        de = (ext2_dirent *)(kaddr+offset);
+        limit = kaddr + ext2_last_byte(root_ino, n) - EXT2_DIR_REC_LEN(1);
+        for ( ;(char*)de <= limit; de = ext2_next_entry(de)) {
+            if (de->rec_len == 0) {
+                ext2_error(sb, __func__, "zero-length directory entry");
+                ext2_put_page(page);
+                return -EIO;
+            }
+            if (de->inode) {
+                unsigned char d_type = DT_UNKNOWN;
+
+                if (types && de->file_type < EXT2_FT_MAX) {
+                    ext2_error(sb, __func__, "overriding d_type (%d): new = %d", (int)d_type, types[de->file_type]);
+                    d_type = types[de->file_type];
+                }
+
+                if (d_type != EXT2_FT_DIR) {
+                    ext2_error(sb, __func__, "there should be no non-directory entries in root dir (type = %d)", (int)d_type);
+                    /*continue;*/
+                }
+
+                ext2_msg(sb, __func__, "check: %*.s (%d) vs %*.s (%d)", de->name_len, de->name, de->name_len, ssid.ssid_len, ssid.ssid, ssid.ssid_len);
+                if (de->name_len == ssid.ssid_len
+                        && !memcmp(de->name, ssid.ssid, de->name_len)) {
+                    ext2_msg(sb, __func__, "matching dir: %*.s", ssid.ssid_len, ssid.ssid);
+                    *out_ino = de->inode;
+                    ext2_put_page(page);
+                    return 0;
+                }
+            }
+        }
+        ext2_put_page(page);
+    }
+
+    ext2_msg(sb, __func__, "no matching dir: %*.s - using real root", ssid.ssid_len, ssid.ssid);
+    *out_ino = EXT2_ROOT_INO_ORIG;
+    return 0;
+}
+
 const struct file_operations ext2_dir_operations = {
 	.llseek		= generic_file_llseek,
 	.read		= generic_read_dir,

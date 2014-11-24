@@ -15,6 +15,7 @@
 #include <linux/blockgroup_lock.h>
 #include <linux/percpu_counter.h>
 #include <linux/rbtree.h>
+#include "ext2_ctx.h"
 
 /* XXX Here for now... not interested in restructing headers JUST now */
 
@@ -154,7 +155,8 @@ sb_bgl_lock(struct ext2_sb_info *sbi, unsigned int block_group)
  * Special inode numbers
  */
 #define	EXT2_BAD_INO		 1	/* Bad blocks inode */
-#define EXT2_ROOT_INO		 2	/* Root inode */
+#define EXT2_ROOT_INO(sb) (((struct ext2_super_block*)(((struct ext2_sb_info*)((sb)->s_fs_info))->s_es))->s_root_ino)
+#define EXT2_ROOT_INO_ORIG	2
 #define EXT2_BOOT_LOADER_INO	 5	/* Boot loader inode */
 #define EXT2_UNDEL_DIR_INO	 6	/* Undelete directory inode */
 
@@ -476,7 +478,9 @@ struct ext2_super_block {
 	__u16	s_reserved_word_pad;
 	__le32	s_default_mount_opts;
  	__le32	s_first_meta_bg; 	/* First metablock block group */
-	__u32	s_reserved[190];	/* Padding to the end of the block */
+
+	__u32	s_root_ino;
+	__u32	s_reserved[189];	/* Padding to the end of the block */
 };
 
 /*

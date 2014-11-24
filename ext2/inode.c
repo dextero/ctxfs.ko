@@ -1236,7 +1236,7 @@ static struct ext2_inode *ext2_get_inode(struct super_block *sb, ino_t ino,
 	struct ext2_group_desc * gdp;
 
 	*p = NULL;
-	if ((ino != EXT2_ROOT_INO && ino < EXT2_FIRST_INO(sb)) ||
+	if ((ino != EXT2_ROOT_INO(sb) && ino < EXT2_FIRST_INO(sb)) ||
 	    ino > le32_to_cpu(EXT2_SB(sb)->s_es->s_inodes_count))
 		goto Einval;
 
