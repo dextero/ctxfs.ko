@@ -764,23 +764,29 @@ int ext2_ctx_find_root_ino(struct super_block *sb,
                 ext2_put_page(page);
                 return -EIO;
             }
+
+            if ((de->name_len == 1 && de->name[0] == '.')
+                    || (de->name_len == 2 && de->name[0] == '.' && de->name[1] == '.')) {
+                continue;
+            }
+
             if (de->inode) {
                 unsigned char d_type = DT_UNKNOWN;
 
                 if (types && de->file_type < EXT2_FT_MAX) {
-                    ext2_error(sb, __func__, "overriding d_type (%d): new = %d", (int)d_type, types[de->file_type]);
+                    ext2_error(sb, __func__, "overriding d_type (%d): new = %d [%d]", (int)d_type, types[de->file_type], de->file_type);
                     d_type = types[de->file_type];
                 }
 
-                if (d_type != EXT2_FT_DIR) {
+                if (d_type != DT_UNKNOWN && EXT2_FT_DIR) {
                     ext2_error(sb, __func__, "there should be no non-directory entries in root dir (type = %d)", (int)d_type);
                     /*continue;*/
                 }
 
-                ext2_msg(sb, __func__, "check: %*.s (%d) vs %*.s (%d)", de->name_len, de->name, de->name_len, ssid.ssid_len, ssid.ssid, ssid.ssid_len);
+                ext2_msg(sb, __func__, "check: %.*s (%d) vs %.*s (%d)", de->name_len, de->name, de->name_len, ssid.ssid_len, ssid.ssid, ssid.ssid_len);
                 if (de->name_len == ssid.ssid_len
                         && !memcmp(de->name, ssid.ssid, de->name_len)) {
-                    ext2_msg(sb, __func__, "matching dir: %*.s", ssid.ssid_len, ssid.ssid);
+                    ext2_msg(sb, __func__, "matching dir: %.*s", ssid.ssid_len, ssid.ssid);
                     *out_ino = de->inode;
                     ext2_put_page(page);
                     return 0;
@@ -790,9 +796,9 @@ int ext2_ctx_find_root_ino(struct super_block *sb,
         ext2_put_page(page);
     }
 
-    ext2_msg(sb, __func__, "no matching dir: %*.s - using real root", ssid.ssid_len, ssid.ssid);
+    ext2_msg(sb, __func__, "no matching dir: %.*s - failing", ssid.ssid_len, ssid.ssid);
     *out_ino = EXT2_ROOT_INO_ORIG;
-    return 0;
+    return -EINVAL;
 }
 
 const struct file_operations ext2_dir_operations = {
