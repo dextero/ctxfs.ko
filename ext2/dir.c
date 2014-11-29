@@ -762,6 +762,7 @@ int ext2_ctx_find_root_ino(struct super_block *sb,
             if (de->rec_len == 0) {
                 ext2_error(sb, __func__, "zero-length directory entry");
                 ext2_put_page(page);
+                iput(root_ino);
                 return -EIO;
             }
 
@@ -789,6 +790,7 @@ int ext2_ctx_find_root_ino(struct super_block *sb,
                     ext2_msg(sb, __func__, "matching dir: %.*s", ssid.ssid_len, ssid.ssid);
                     *out_ino = de->inode;
                     ext2_put_page(page);
+                    iput(root_ino);
                     return 0;
                 }
             }
@@ -798,6 +800,7 @@ int ext2_ctx_find_root_ino(struct super_block *sb,
 
     ext2_msg(sb, __func__, "no matching dir: %.*s - failing", ssid.ssid_len, ssid.ssid);
     *out_ino = EXT2_ROOT_INO_ORIG;
+    iput(root_ino);
     return -EINVAL;
 }
 
