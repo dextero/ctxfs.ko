@@ -662,23 +662,28 @@ int ext2_ctx_adjust_root(struct super_block *sb) {
 	}
 
 	if (!S_ISDIR(root->i_mode) || !root->i_blocks || !root->i_size) {
-		iput(root);
 		ext2_msg(sb, KERN_ERR, "error: corrupt root inode, run e2fsck");
-		return -EINVAL;
+        ret = -EINVAL;
+        goto fail;
 	}
 
     d_drop(sb->s_root);
 	sb->s_root = d_make_root(root);
 	if (!sb->s_root) {
 		ext2_msg(sb, KERN_ERR, "error: get root inode failed");
-        return -ENOMEM;
+        ret = -ENOMEM;
+        goto fail;
 	}
 
 	if (ext2_setup_super (sb, es, sb->s_flags & MS_RDONLY))
 		sb->s_flags |= MS_RDONLY;
 
 	ext2_write_super(sb);
-	return 0;
+    return 0;
+
+fail:
+    iput(root);
+	return ret;
 }
 
 static int ext2_check_descriptors(struct super_block *sb)
@@ -1162,6 +1167,8 @@ static int ext2_fill_super(struct super_block *sb, void *data, int silent)
 	/*ext2_write_super(sb);*/
     ext2_msg(sb, __func__, "adjusting root");
 	ret = ext2_ctx_adjust_root(sb);
+
+    iput(root);
     if (ret) {
         ext2_msg(sb, __func__, "ext2_ctx_adjust_root failed: %ld", ret);
         d_drop(sb->s_root);
