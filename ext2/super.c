@@ -655,36 +655,29 @@ int ext2_ctx_adjust_root(struct super_block *sb) {
         return -EFAULT;
     }
 
-    ext2_msg(sb, __func__, "%s:%d", __FILE__, __LINE__);
 	root = ext2_iget(sb, EXT2_ROOT_INO(sb));
 	if (IS_ERR(root)) {
 		ret = PTR_ERR(root);
 		return ret;
 	}
 
-    ext2_msg(sb, __func__, "%s:%d", __FILE__, __LINE__);
 	if (!S_ISDIR(root->i_mode) || !root->i_blocks || !root->i_size) {
 		iput(root);
 		ext2_msg(sb, KERN_ERR, "error: corrupt root inode, run e2fsck");
 		return -EINVAL;
 	}
 
-    ext2_msg(sb, __func__, "%s:%d", __FILE__, __LINE__);
     d_drop(sb->s_root);
 	sb->s_root = d_make_root(root);
-    ext2_msg(sb, __func__, "%s:%d", __FILE__, __LINE__);
 	if (!sb->s_root) {
 		ext2_msg(sb, KERN_ERR, "error: get root inode failed");
         return -ENOMEM;
 	}
 
-    ext2_msg(sb, __func__, "%s:%d", __FILE__, __LINE__);
 	if (ext2_setup_super (sb, es, sb->s_flags & MS_RDONLY))
 		sb->s_flags |= MS_RDONLY;
 
-    ext2_msg(sb, __func__, "%s:%d", __FILE__, __LINE__);
 	ext2_write_super(sb);
-    ext2_msg(sb, __func__, "%s:%d", __FILE__, __LINE__);
 	return 0;
 }
 

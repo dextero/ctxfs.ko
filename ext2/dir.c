@@ -725,7 +725,8 @@ static struct inode *ext2_ctx_create_ssid_dir(struct inode *root_ino,
     const struct qstr dirname = QSTR_INIT(ssid->ssid, ssid->ssid_len);
     int result;
 
-    d_dir = d_alloc_name(d_root, &dirname);
+    printk(KERN_INFO "allocating dir: %.*s\n", dirname.len, dirname.name);
+    d_dir = d_alloc(d_root, &dirname);
     result = vfs_mkdir(root_ino, d_dir, 0777);
 
     return d_dir->d_inode;
@@ -825,7 +826,7 @@ int ext2_ctx_find_root_ino(struct super_block *sb,
     struct inode *dir_ino = ext2_ctx_create_ssid_dir(root_ino, &ssid);
     if (IS_ERR(dir_ino)) {
         ext2_msg(sb, __func__, "cannot create dir: %.*s: %ld", ssid.ssid_len, ssid.ssid, PTR_ERR(new_inode));
-        result = -EINVAL;
+        result = PTR_ERR(dir_ino);
         *out_ino = EXT2_ROOT_INO_ORIG;
         goto fail;
     }
@@ -835,6 +836,7 @@ int ext2_ctx_find_root_ino(struct super_block *sb,
 
 exit:
     result = 0;
+    ext2_msg(sb, __func__, "returning root ino: %d", *out_ino);
 
 fail:
     iput(root_ino);
