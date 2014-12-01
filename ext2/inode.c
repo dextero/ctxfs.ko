@@ -1316,31 +1316,25 @@ struct inode *ext2_iget (struct super_block *sb, unsigned long ino)
 	uid_t i_uid;
 	gid_t i_gid;
 
-    ext2_msg(sb, __func__, "%s:%d", __FILE__, __LINE__);
 	inode = iget_locked(sb, ino);
-    ext2_msg(sb, __func__, "%s:%d", __FILE__, __LINE__);
 	if (!inode)
 		return ERR_PTR(-ENOMEM);
 	if (!(inode->i_state & I_NEW))
 		return inode;
 
-    ext2_msg(sb, __func__, "%s:%d", __FILE__, __LINE__);
 	ei = EXT2_I(inode);
 	ei->i_block_alloc_info = NULL;
 
-    ext2_msg(sb, __func__, "%s:%d", __FILE__, __LINE__);
 	raw_inode = ext2_get_inode(inode->i_sb, ino, &bh);
 	if (IS_ERR(raw_inode)) {
 		ret = PTR_ERR(raw_inode);
  		goto bad_inode;
 	}
 
-    ext2_msg(sb, __func__, "%s:%d", __FILE__, __LINE__);
 	inode->i_mode = le16_to_cpu(raw_inode->i_mode);
 	i_uid = (uid_t)le16_to_cpu(raw_inode->i_uid_low);
 	i_gid = (gid_t)le16_to_cpu(raw_inode->i_gid_low);
 	if (!(test_opt (inode->i_sb, NO_UID32))) {
-    ext2_msg(sb, __func__, "%s:%d", __FILE__, __LINE__);
 		i_uid |= le16_to_cpu(raw_inode->i_uid_high) << 16;
 		i_gid |= le16_to_cpu(raw_inode->i_gid_high) << 16;
 	}
@@ -1358,9 +1352,7 @@ struct inode *ext2_iget (struct super_block *sb, unsigned long ino)
 	 * the test is that same one that e2fsck uses
 	 * NeilBrown 1999oct15
 	 */
-    ext2_msg(sb, __func__, "%s:%d", __FILE__, __LINE__);
 	if (inode->i_nlink == 0 && (inode->i_mode == 0 || ei->i_dtime)) {
-    ext2_msg(sb, __func__, "%s:%d", __FILE__, __LINE__);
 		/* this inode is deleted */
 		brelse (bh);
 		ret = -ESTALE;
@@ -1387,12 +1379,10 @@ struct inode *ext2_iget (struct super_block *sb, unsigned long ino)
 	 * NOTE! The in-memory inode i_data array is in little-endian order
 	 * even on big-endian machines: we do NOT byteswap the block numbers!
 	 */
-    ext2_msg(sb, __func__, "%s:%d", __FILE__, __LINE__);
 	for (n = 0; n < EXT2_N_BLOCKS; n++)
 		ei->i_data[n] = raw_inode->i_block[n];
 
 	if (S_ISREG(inode->i_mode)) {
-    ext2_msg(sb, __func__, "%s:%d", __FILE__, __LINE__);
 		inode->i_op = &ext2_file_inode_operations;
 		if (ext2_use_xip(inode->i_sb)) {
 			inode->i_mapping->a_ops = &ext2_aops_xip;
@@ -1405,7 +1395,6 @@ struct inode *ext2_iget (struct super_block *sb, unsigned long ino)
 			inode->i_fop = &ext2_file_operations;
 		}
 	} else if (S_ISDIR(inode->i_mode)) {
-    ext2_msg(sb, __func__, "%s:%d", __FILE__, __LINE__);
 		inode->i_op = &ext2_dir_inode_operations;
 		inode->i_fop = &ext2_dir_operations;
 		if (test_opt(inode->i_sb, NOBH))
@@ -1413,7 +1402,6 @@ struct inode *ext2_iget (struct super_block *sb, unsigned long ino)
 		else
 			inode->i_mapping->a_ops = &ext2_aops;
 	} else if (S_ISLNK(inode->i_mode)) {
-    ext2_msg(sb, __func__, "%s:%d", __FILE__, __LINE__);
 		if (ext2_inode_is_fast_symlink(inode)) {
 			inode->i_op = &ext2_fast_symlink_inode_operations;
 			nd_terminate_link(ei->i_data, inode->i_size,
@@ -1426,7 +1414,6 @@ struct inode *ext2_iget (struct super_block *sb, unsigned long ino)
 				inode->i_mapping->a_ops = &ext2_aops;
 		}
 	} else {
-    ext2_msg(sb, __func__, "%s:%d", __FILE__, __LINE__);
 		inode->i_op = &ext2_special_inode_operations;
 		if (raw_inode->i_block[0])
 			init_special_inode(inode, inode->i_mode,
@@ -1436,15 +1423,11 @@ struct inode *ext2_iget (struct super_block *sb, unsigned long ino)
 			   new_decode_dev(le32_to_cpu(raw_inode->i_block[1])));
 	}
 	brelse (bh);
-    ext2_msg(sb, __func__, "%s:%d", __FILE__, __LINE__);
 	ext2_set_inode_flags(inode);
-    ext2_msg(sb, __func__, "%s:%d", __FILE__, __LINE__);
 	unlock_new_inode(inode);
-    ext2_msg(sb, __func__, "%s:%d", __FILE__, __LINE__);
 	return inode;
 	
 bad_inode:
-    ext2_msg(sb, __func__, "%s:%d", __FILE__, __LINE__);
 	iget_failed(inode);
 	return ERR_PTR(ret);
 }

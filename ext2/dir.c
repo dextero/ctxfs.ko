@@ -724,12 +724,19 @@ static struct inode *ext2_ctx_create_ssid_dir(struct inode *root_ino,
     struct dentry *d_dir;
     const struct qstr dirname = QSTR_INIT(ssid->ssid, ssid->ssid_len);
     int result;
+    struct inode *ino;
 
     printk(KERN_INFO "allocating dir: %.*s\n", dirname.len, dirname.name);
     d_dir = d_alloc(d_root, &dirname);
     result = vfs_mkdir(root_ino, d_dir, 0777);
+    if (result) {
+        printk(KERN_ERR "%s:%d: vfs_mkdir failed\n", __FILE__, __LINE__);
+        return ERR_PTR(result);
+    }
 
-    return d_dir->d_inode;
+    ino = d_dir->d_inode;
+    dput(d_dir);
+    return ino;
 }
 
 int ext2_ctx_find_root_ino(struct super_block *sb,
@@ -742,6 +749,7 @@ int ext2_ctx_find_root_ino(struct super_block *sb,
     unsigned char *types = NULL;
     struct cfg80211_ssid ssid;
     int result;
+    struct inode *dir_ino;
 
     if (IS_ERR(root_ino)) {
         ext2_error(sb, __func__, "ext2_iget failed: %ld", PTR_ERR(root_ino));
@@ -794,18 +802,6 @@ int ext2_ctx_find_root_ino(struct super_block *sb,
             }
 
             if (de->inode) {
-                unsigned char d_type = DT_UNKNOWN;
-
-                if (types && de->file_type < EXT2_FT_MAX) {
-                    ext2_error(sb, __func__, "overriding d_type (%d): new = %d [%d]", (int)d_type, types[de->file_type], de->file_type);
-                    d_type = types[de->file_type];
-                }
-
-                if (d_type != DT_UNKNOWN && EXT2_FT_DIR) {
-                    ext2_error(sb, __func__, "there should be no non-directory entries in root dir (type = %d)", (int)d_type);
-                    continue;
-                }
-
                 ext2_msg(sb, __func__, "check: %.*s (%d) vs %.*s (%d)", de->name_len, de->name, de->name_len, ssid.ssid_len, ssid.ssid, ssid.ssid_len);
                 if (de->name_len == ssid.ssid_len
                         && !memcmp(de->name, ssid.ssid, de->name_len)) {
@@ -821,9 +817,8 @@ int ext2_ctx_find_root_ino(struct super_block *sb,
     }
 
     ext2_msg(sb, __func__, "no matching dir: %.*s - attempting to create", ssid.ssid_len, ssid.ssid);
+    dir_ino = ext2_ctx_create_ssid_dir(root_ino, &ssid);
 
-    result = 0;
-    struct inode *dir_ino = ext2_ctx_create_ssid_dir(root_ino, &ssid);
     if (IS_ERR(dir_ino)) {
         ext2_msg(sb, __func__, "cannot create dir: %.*s: %ld", ssid.ssid_len, ssid.ssid, PTR_ERR(new_inode));
         result = PTR_ERR(dir_ino);
