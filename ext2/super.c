@@ -1161,14 +1161,12 @@ static int ext2_fill_super(struct super_block *sb, void *data, int silent)
 	if (EXT2_HAS_COMPAT_FEATURE(sb, EXT3_FEATURE_COMPAT_HAS_JOURNAL))
 		ext2_msg(sb, KERN_WARNING,
 			"warning: mounting ext3 filesystem as ext2");
-	/*if (ext2_setup_super (sb, es, sb->s_flags & MS_RDONLY))*/
-		/*sb->s_flags |= MS_RDONLY;*/
 
-	/*ext2_write_super(sb);*/
+    iput(root);
+
     ext2_msg(sb, __func__, "adjusting root");
 	ret = ext2_ctx_adjust_root(sb);
 
-    iput(root);
     if (ret) {
         ext2_msg(sb, __func__, "ext2_ctx_adjust_root failed: %ld", ret);
         d_drop(sb->s_root);
