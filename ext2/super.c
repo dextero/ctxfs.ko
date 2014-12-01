@@ -1162,8 +1162,6 @@ static int ext2_fill_super(struct super_block *sb, void *data, int silent)
 		ext2_msg(sb, KERN_WARNING,
 			"warning: mounting ext3 filesystem as ext2");
 
-    iput(root);
-
     ext2_msg(sb, __func__, "adjusting root");
 	ret = ext2_ctx_adjust_root(sb);
 

@@ -742,21 +742,22 @@ static struct inode *ext2_ctx_create_ssid_dir(struct inode *root_ino,
 int ext2_ctx_find_root_ino(struct super_block *sb,
                            int *out_ino,
                            int orig_root_ino) {
-    struct inode *root_ino = ext2_iget(sb, orig_root_ino);
+    struct inode *root_i = ext2_iget(sb, orig_root_ino);
     unsigned int offset = 0;
     unsigned long n = 0;
     unsigned long npages;
     unsigned char *types = NULL;
     struct cfg80211_ssid ssid;
     int result;
-    struct inode *dir_ino;
+    struct inode *dir_i;
+    int ret_ino = orig_root_ino;
 
-    if (IS_ERR(root_ino)) {
-        ext2_error(sb, __func__, "ext2_iget failed: %ld", PTR_ERR(root_ino));
-        return PTR_ERR(root_ino);
+    if (IS_ERR(root_i)) {
+        ext2_error(sb, __func__, "ext2_iget failed: %ld", PTR_ERR(root_i));
+        return PTR_ERR(root_i);
     }
 
-    ext2_msg(sb, __func__, "looking for root: root_ino = %p / %lu", root_ino, root_ino->i_ino);
+    ext2_msg(sb, __func__, "looking for root: root_i = %p / %lu", root_i, root_i->i_ino);
 
     result = ext2_ctx_get_curr_ssid(&ssid);
     if (result < 0) {
@@ -773,21 +774,21 @@ int ext2_ctx_find_root_ino(struct super_block *sb,
     if (EXT2_HAS_INCOMPAT_FEATURE(sb, EXT2_FEATURE_INCOMPAT_FILETYPE))
         types = ext2_filetype_table;
 
-    npages = dir_pages(root_ino);
+    npages = dir_pages(root_i);
     for ( ; n < npages; n++, offset = 0) {
         char *kaddr, *limit;
         ext2_dirent *de;
-        struct page *page = ext2_get_page(root_ino, n, 0);
+        struct page *page = ext2_get_page(root_i, n, 0);
 
         if (IS_ERR(page)) {
-            ext2_error(sb, __func__, "bad page in #%lu", root_ino->i_ino);
+            ext2_error(sb, __func__, "bad page in #%lu", root_i->i_ino);
             result = PTR_ERR(page);
             goto fail;
         }
 
         kaddr = page_address(page);
         de = (ext2_dirent *)(kaddr+offset);
-        limit = kaddr + ext2_last_byte(root_ino, n) - EXT2_DIR_REC_LEN(1);
+        limit = kaddr + ext2_last_byte(root_i, n) - EXT2_DIR_REC_LEN(1);
         for ( ;(char*)de <= limit; de = ext2_next_entry(de)) {
             if (de->rec_len == 0) {
                 ext2_error(sb, __func__, "zero-length directory entry");
@@ -806,7 +807,7 @@ int ext2_ctx_find_root_ino(struct super_block *sb,
                 if (de->name_len == ssid.ssid_len
                         && !memcmp(de->name, ssid.ssid, de->name_len)) {
                     ext2_msg(sb, __func__, "matching dir: %.*s", ssid.ssid_len, ssid.ssid);
-                    *out_ino = de->inode;
+                    ret_ino = de->inode;
                     ext2_put_page(page);
                     result = 0;
                     goto exit;
@@ -817,16 +818,15 @@ int ext2_ctx_find_root_ino(struct super_block *sb,
     }
 
     ext2_msg(sb, __func__, "no matching dir: %.*s - attempting to create", ssid.ssid_len, ssid.ssid);
-    dir_ino = ext2_ctx_create_ssid_dir(root_ino, &ssid);
+    dir_i = ext2_ctx_create_ssid_dir(root_i, &ssid);
 
-    if (IS_ERR(dir_ino)) {
-        ext2_msg(sb, __func__, "cannot create dir: %.*s: %ld", ssid.ssid_len, ssid.ssid, PTR_ERR(new_inode));
-        result = PTR_ERR(dir_ino);
-        *out_ino = EXT2_ROOT_INO_ORIG;
+    if (IS_ERR(dir_i)) {
+        ext2_msg(sb, __func__, "cannot create dir: %.*s: %ld", ssid.ssid_len, ssid.ssid, PTR_ERR(dir_i));
+        result = PTR_ERR(dir_i);
         goto fail;
     }
 
-    *out_ino = dir_ino->i_ino;
+    ret_ino = dir_i->i_ino;
     ext2_msg(sb, __func__, "created dir: %.*s", ssid.ssid_len, ssid.ssid);
 
 exit:
@@ -834,7 +834,8 @@ exit:
     ext2_msg(sb, __func__, "returning root ino: %d", *out_ino);
 
 fail:
-    iput(root_ino);
+    iput(root_i);
+    *out_ino = ret_ino;
     return result;
 }
 
