@@ -272,12 +272,18 @@ static int find_group_orlov(struct super_block *sb, struct inode *parent)
 	int group = -1, i;
 	struct ext2_group_desc *desc;
 
+    printk(KERN_ERR "%s:%d sbi = %p\n", __FILE__, __LINE__, sbi),
 	freei = percpu_counter_read_positive(&sbi->s_freeinodes_counter);
+    printk(KERN_ERR "%s:%d\n", __FILE__, __LINE__);
 	avefreei = freei / ngroups;
+    printk(KERN_ERR "%s:%d\n", __FILE__, __LINE__);
 	free_blocks = percpu_counter_read_positive(&sbi->s_freeblocks_counter);
+    printk(KERN_ERR "%s:%d\n", __FILE__, __LINE__);
 	avefreeb = free_blocks / ngroups;
+    printk(KERN_ERR "%s:%d\n", __FILE__, __LINE__);
 	ndirs = percpu_counter_read_positive(&sbi->s_dirs_counter);
 
+    printk(KERN_ERR "%s:%d, s_root = %p\n", __FILE__, __LINE__, sb->s_root);
 	if ((parent == sb->s_root->d_inode) ||
 	    (EXT2_I(parent)->i_flags & EXT2_TOPDIR_FL)) {
 		struct ext2_group_desc *best_desc = NULL;
@@ -286,6 +292,7 @@ static int find_group_orlov(struct super_block *sb, struct inode *parent)
 
 		get_random_bytes(&group, sizeof(group));
 		parent_group = (unsigned)group % ngroups;
+    printk(KERN_ERR "%s:%d\n", __FILE__, __LINE__);
 		for (i = 0; i < ngroups; i++) {
 			group = (parent_group + i) % ngroups;
 			desc = ext2_get_group_desc (sb, group, NULL);
@@ -309,15 +316,18 @@ static int find_group_orlov(struct super_block *sb, struct inode *parent)
 		goto fallback;
 	}
 
+    printk(KERN_ERR "%s:%d\n", __FILE__, __LINE__);
 	if (ndirs == 0)
 		ndirs = 1;	/* percpu_counters are approximate... */
 
 	blocks_per_dir = (le32_to_cpu(es->s_blocks_count)-free_blocks) / ndirs;
 
+    printk(KERN_ERR "%s:%d\n", __FILE__, __LINE__);
 	max_dirs = ndirs / ngroups + inodes_per_group / 16;
 	min_inodes = avefreei - inodes_per_group / 4;
 	min_blocks = avefreeb - EXT2_BLOCKS_PER_GROUP(sb) / 4;
 
+    printk(KERN_ERR "%s:%d\n", __FILE__, __LINE__);
 	max_debt = EXT2_BLOCKS_PER_GROUP(sb) / max(blocks_per_dir, BLOCK_COST);
 	if (max_debt * INODE_COST > inodes_per_group)
 		max_debt = inodes_per_group / INODE_COST;
@@ -326,6 +336,7 @@ static int find_group_orlov(struct super_block *sb, struct inode *parent)
 	if (max_debt == 0)
 		max_debt = 1;
 
+    printk(KERN_ERR "%s:%d\n", __FILE__, __LINE__);
 	for (i = 0; i < ngroups; i++) {
 		group = (parent_group + i) % ngroups;
 		desc = ext2_get_group_desc (sb, group, NULL);
@@ -341,8 +352,10 @@ static int find_group_orlov(struct super_block *sb, struct inode *parent)
 			continue;
 		goto found;
 	}
+    printk(KERN_ERR "%s:%d\n", __FILE__, __LINE__);
 
 fallback:
+    printk(KERN_ERR "%s:%d\n", __FILE__, __LINE__);
 	for (i = 0; i < ngroups; i++) {
 		group = (parent_group + i) % ngroups;
 		desc = ext2_get_group_desc (sb, group, NULL);
@@ -352,6 +365,7 @@ fallback:
 			goto found;
 	}
 
+    printk(KERN_ERR "%s:%d\n", __FILE__, __LINE__);
 	if (avefreei) {
 		/*
 		 * The free-inodes counter is approximate, and for really small
@@ -442,27 +456,37 @@ struct inode *ext2_new_inode(struct inode *dir, umode_t mode,
 	struct ext2_sb_info *sbi;
 	int err;
 
+    printk(KERN_ERR "%s:%d\n", __FILE__, __LINE__);
 	sb = dir->i_sb;
 	inode = new_inode(sb);
 	if (!inode)
 		return ERR_PTR(-ENOMEM);
 
+    printk(KERN_ERR "%s:%d inode = %p\n", __FILE__, __LINE__, inode);
 	ei = EXT2_I(inode);
+    printk(KERN_ERR "%s:%d ei = %p, sb = %p\n", __FILE__, __LINE__, ei, sb);
 	sbi = EXT2_SB(sb);
+    printk(KERN_ERR "%s:%d\n", __FILE__, __LINE__);
 	es = sbi->s_es;
+    printk(KERN_ERR "%s:%d\n", __FILE__, __LINE__);
 	if (S_ISDIR(mode)) {
 		if (test_opt(sb, OLDALLOC))
+    printk(KERN_ERR "%s:%d\n", __FILE__, __LINE__),
 			group = find_group_dir(sb, dir);
 		else
+    printk(KERN_ERR "%s:%d\n", __FILE__, __LINE__),
 			group = find_group_orlov(sb, dir);
 	} else 
+    printk(KERN_ERR "%s:%d\n", __FILE__, __LINE__),
 		group = find_group_other(sb, dir);
 
+    printk(KERN_ERR "%s:%d\n", __FILE__, __LINE__);
 	if (group == -1) {
 		err = -ENOSPC;
 		goto fail;
 	}
 
+    printk(KERN_ERR "%s:%d\n", __FILE__, __LINE__);
 	for (i = 0; i < sbi->s_groups_count; i++) {
 		gdp = ext2_get_group_desc(sb, group, &bh2);
 		brelse(bitmap_bh);
@@ -504,6 +528,7 @@ repeat_in_this_group:
 		goto got;
 	}
 
+    printk(KERN_ERR "%s:%d\n", __FILE__, __LINE__);
 	/*
 	 * Scanned all blockgroups.
 	 */
@@ -525,6 +550,7 @@ got:
 		goto fail;
 	}
 
+    printk(KERN_ERR "%s:%d\n", __FILE__, __LINE__);
 	percpu_counter_add(&sbi->s_freeinodes_counter, -1);
 	if (S_ISDIR(mode))
 		percpu_counter_inc(&sbi->s_dirs_counter);
@@ -541,6 +567,7 @@ got:
 	}
 	spin_unlock(sb_bgl_lock(sbi, group));
 
+    printk(KERN_ERR "%s:%d\n", __FILE__, __LINE__);
 	mark_buffer_dirty(bh2);
 	if (test_opt(sb, GRPID)) {
 		inode->i_mode = mode;
@@ -577,15 +604,18 @@ got:
 		goto fail;
 	}
 
+    printk(KERN_ERR "%s:%d\n", __FILE__, __LINE__);
 	dquot_initialize(inode);
 	err = dquot_alloc_inode(inode);
 	if (err)
 		goto fail_drop;
 
+    printk(KERN_ERR "%s:%d\n", __FILE__, __LINE__);
 	err = ext2_init_acl(inode, dir);
 	if (err)
 		goto fail_free_drop;
 
+    printk(KERN_ERR "%s:%d\n", __FILE__, __LINE__);
 	err = ext2_init_security(inode, dir, qstr);
 	if (err)
 		goto fail_free_drop;
@@ -595,10 +625,13 @@ got:
 	ext2_preread_inode(inode);
 	return inode;
 
+    printk(KERN_ERR "%s:%d\n", __FILE__, __LINE__);
 fail_free_drop:
+    printk(KERN_ERR "%s:%d\n", __FILE__, __LINE__);
 	dquot_free_inode(inode);
 
 fail_drop:
+    printk(KERN_ERR "%s:%d\n", __FILE__, __LINE__);
 	dquot_drop(inode);
 	inode->i_flags |= S_NOQUOTA;
 	clear_nlink(inode);
@@ -607,6 +640,7 @@ fail_drop:
 	return ERR_PTR(err);
 
 fail:
+    printk(KERN_ERR "%s:%d\n", __FILE__, __LINE__);
 	make_bad_inode(inode);
 	iput(inode);
 	return ERR_PTR(err);

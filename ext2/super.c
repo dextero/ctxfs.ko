@@ -642,6 +642,52 @@ static int ext2_setup_super (struct super_block * sb,
 	return res;
 }
 
+int ext2_ctx_adjust_root(struct super_block *sb) {
+	struct ext2_sb_info *sbi = (struct ext2_sb_info*)sb->s_fs_info;
+	struct ext2_super_block *es = sbi->s_es;
+	struct inode *root = NULL;
+    int ret = 0;
+
+    ext2_msg(sb, __func__, "finding root ino, is: %u = %u", (unsigned)es->s_root_ino, (unsigned)EXT2_ROOT_INO(sb));
+    ret = ext2_ctx_find_root_ino(sb, &es->s_root_ino, EXT2_ROOT_INO_ORIG);
+    if (ret < 0) {
+        ext2_msg(sb, __func__, "ext2_ctx_find_root_ino failed: %d", ret);
+        return -EFAULT;
+    }
+
+    ext2_msg(sb, __func__, "%s:%d", __FILE__, __LINE__);
+	root = ext2_iget(sb, EXT2_ROOT_INO(sb));
+	if (IS_ERR(root)) {
+		ret = PTR_ERR(root);
+		return ret;
+	}
+
+    ext2_msg(sb, __func__, "%s:%d", __FILE__, __LINE__);
+	if (!S_ISDIR(root->i_mode) || !root->i_blocks || !root->i_size) {
+		iput(root);
+		ext2_msg(sb, KERN_ERR, "error: corrupt root inode, run e2fsck");
+		return -EINVAL;
+	}
+
+    ext2_msg(sb, __func__, "%s:%d", __FILE__, __LINE__);
+    d_drop(sb->s_root);
+	sb->s_root = d_make_root(root);
+    ext2_msg(sb, __func__, "%s:%d", __FILE__, __LINE__);
+	if (!sb->s_root) {
+		ext2_msg(sb, KERN_ERR, "error: get root inode failed");
+        return -ENOMEM;
+	}
+
+    ext2_msg(sb, __func__, "%s:%d", __FILE__, __LINE__);
+	if (ext2_setup_super (sb, es, sb->s_flags & MS_RDONLY))
+		sb->s_flags |= MS_RDONLY;
+
+    ext2_msg(sb, __func__, "%s:%d", __FILE__, __LINE__);
+	ext2_write_super(sb);
+    ext2_msg(sb, __func__, "%s:%d", __FILE__, __LINE__);
+	return 0;
+}
+
 static int ext2_check_descriptors(struct super_block *sb)
 {
 	int i;
@@ -1097,12 +1143,6 @@ static int ext2_fill_super(struct super_block *sb, void *data, int silent)
     // temporary
     es->s_root_ino = EXT2_ROOT_INO_ORIG;
 
-    ext2_msg(sb, __func__, "finding root ino, is: %u = %u", (unsigned)es->s_root_ino, (unsigned)EXT2_ROOT_INO(sb));
-    ret = ext2_ctx_find_root_ino(sb, &es->s_root_ino, EXT2_ROOT_INO_ORIG);
-    if (ret < 0) {
-        goto failed_mount3;
-    }
-
 	root = ext2_iget(sb, EXT2_ROOT_INO(sb));
 	if (IS_ERR(root)) {
 		ret = PTR_ERR(root);
@@ -1123,11 +1163,20 @@ static int ext2_fill_super(struct super_block *sb, void *data, int silent)
 	if (EXT2_HAS_COMPAT_FEATURE(sb, EXT3_FEATURE_COMPAT_HAS_JOURNAL))
 		ext2_msg(sb, KERN_WARNING,
 			"warning: mounting ext3 filesystem as ext2");
-	if (ext2_setup_super (sb, es, sb->s_flags & MS_RDONLY))
-		sb->s_flags |= MS_RDONLY;
+	/*if (ext2_setup_super (sb, es, sb->s_flags & MS_RDONLY))*/
+		/*sb->s_flags |= MS_RDONLY;*/
 
-	ext2_write_super(sb);
-	return 0;
+	/*ext2_write_super(sb);*/
+    ext2_msg(sb, __func__, "adjusting root");
+	ret = ext2_ctx_adjust_root(sb);
+    if (ret) {
+        ext2_msg(sb, __func__, "ext2_ctx_adjust_root failed: %ld", ret);
+        d_drop(sb->s_root);
+        sb->s_root = NULL;
+        goto failed_mount3;
+    }
+
+    return 0;
 
 cantfind_ext2:
 	if (!silent)

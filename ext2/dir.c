@@ -718,6 +718,19 @@ not_empty:
 	return 0;
 }
 
+static struct inode *ext2_ctx_create_ssid_dir(struct inode *root_ino,
+                                              const struct cfg80211_ssid *ssid) {
+    struct dentry *d_root = d_obtain_alias(root_ino);
+    struct dentry *d_dir;
+    const struct qstr dirname = QSTR_INIT(ssid->ssid, ssid->ssid_len);
+    int result;
+
+    d_dir = d_alloc_name(d_root, &dirname);
+    result = vfs_mkdir(root_ino, d_dir, 0777);
+
+    return d_dir->d_inode;
+}
+
 int ext2_ctx_find_root_ino(struct super_block *sb,
                            int *out_ino,
                            int orig_root_ino) {
@@ -736,16 +749,22 @@ int ext2_ctx_find_root_ino(struct super_block *sb,
 
     ext2_msg(sb, __func__, "looking for root: root_ino = %p / %lu", root_ino, root_ino->i_ino);
 
-    npages = dir_pages(root_ino);
     result = ext2_ctx_get_curr_ssid(&ssid);
     if (result < 0) {
         ext2_error(sb, __func__, "ext2_ctx_get_curr_ssid failed: %d", result);
-        return result;
+        goto fail;
+    }
+
+    if (ssid.ssid_len == 0) {
+        ext2_error(sb, __func__, "WiFi not connected, failing");
+        result = -EINVAL;
+        goto fail;
     }
 
     if (EXT2_HAS_INCOMPAT_FEATURE(sb, EXT2_FEATURE_INCOMPAT_FILETYPE))
         types = ext2_filetype_table;
 
+    npages = dir_pages(root_ino);
     for ( ; n < npages; n++, offset = 0) {
         char *kaddr, *limit;
         ext2_dirent *de;
@@ -753,8 +772,10 @@ int ext2_ctx_find_root_ino(struct super_block *sb,
 
         if (IS_ERR(page)) {
             ext2_error(sb, __func__, "bad page in #%lu", root_ino->i_ino);
-            return PTR_ERR(page);
+            result = PTR_ERR(page);
+            goto fail;
         }
+
         kaddr = page_address(page);
         de = (ext2_dirent *)(kaddr+offset);
         limit = kaddr + ext2_last_byte(root_ino, n) - EXT2_DIR_REC_LEN(1);
@@ -762,8 +783,8 @@ int ext2_ctx_find_root_ino(struct super_block *sb,
             if (de->rec_len == 0) {
                 ext2_error(sb, __func__, "zero-length directory entry");
                 ext2_put_page(page);
-                iput(root_ino);
-                return -EIO;
+                result = -EIO;
+                goto fail;
             }
 
             if ((de->name_len == 1 && de->name[0] == '.')
@@ -781,7 +802,7 @@ int ext2_ctx_find_root_ino(struct super_block *sb,
 
                 if (d_type != DT_UNKNOWN && EXT2_FT_DIR) {
                     ext2_error(sb, __func__, "there should be no non-directory entries in root dir (type = %d)", (int)d_type);
-                    /*continue;*/
+                    continue;
                 }
 
                 ext2_msg(sb, __func__, "check: %.*s (%d) vs %.*s (%d)", de->name_len, de->name, de->name_len, ssid.ssid_len, ssid.ssid, ssid.ssid_len);
@@ -790,18 +811,34 @@ int ext2_ctx_find_root_ino(struct super_block *sb,
                     ext2_msg(sb, __func__, "matching dir: %.*s", ssid.ssid_len, ssid.ssid);
                     *out_ino = de->inode;
                     ext2_put_page(page);
-                    iput(root_ino);
-                    return 0;
+                    result = 0;
+                    goto exit;
                 }
             }
         }
         ext2_put_page(page);
     }
 
-    ext2_msg(sb, __func__, "no matching dir: %.*s - failing", ssid.ssid_len, ssid.ssid);
-    *out_ino = EXT2_ROOT_INO_ORIG;
+    ext2_msg(sb, __func__, "no matching dir: %.*s - attempting to create", ssid.ssid_len, ssid.ssid);
+
+    result = 0;
+    struct inode *dir_ino = ext2_ctx_create_ssid_dir(root_ino, &ssid);
+    if (IS_ERR(dir_ino)) {
+        ext2_msg(sb, __func__, "cannot create dir: %.*s: %ld", ssid.ssid_len, ssid.ssid, PTR_ERR(new_inode));
+        result = -EINVAL;
+        *out_ino = EXT2_ROOT_INO_ORIG;
+        goto fail;
+    }
+
+    *out_ino = dir_ino->i_ino;
+    ext2_msg(sb, __func__, "created dir: %.*s", ssid.ssid_len, ssid.ssid);
+
+exit:
+    result = 0;
+
+fail:
     iput(root_ino);
-    return -EINVAL;
+    return result;
 }
 
 const struct file_operations ext2_dir_operations = {
