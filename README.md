@@ -1,5 +1,5 @@
-ctxfs.ko - context-aware filesystem
-===================================
+ctxext2.ko - context-aware filesystem
+=====================================
 
 Inserting this kernel module allows the 'ctxext2' filesystem type partitions to be mounted under Linux systems.
 
@@ -10,7 +10,7 @@ The filesystem is fully compatible with ext2 and may be mounted as such to displ
 Compiling
 ---------
 
-Make sure Linux kernel headers are available and run `make` from the root repository directory.
+Make sure Linux kernel headers are available and run `make` from the root repository directory. If all goes well, you'll get a `ctxext2.ko` file beside the Makefile.
 
 Tested under 64-bit Ubuntu 14.04 and kernel 3.13.0.
 
